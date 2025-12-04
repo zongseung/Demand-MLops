@@ -1,0 +1,100 @@
+services:
+  prefect-server-weather:
+    image: prefecthq/prefect:2-python3.10
+    container_name: prefect-server-weather
+    ports:
+      - "4204:4200"
+    environment:
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@postgres-weather:5432/prefect
+    command: >
+      bash -c "
+      apt-get update &&
+      apt-get install -y curl &&
+      prefect server start
+      "
+    depends_on:
+      postgres-weather:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"] 
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prefect-network
+
+  postgres-weather:
+    image: postgres:14
+    container_name: prefect-postgres-weather
+    environment:
+      - POSTGRES_USER=prefect
+      - POSTGRES_PASSWORD=prefect
+      - POSTGRES_DB=prefect
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prefect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prefect-network
+
+  weather-collector:
+    build:
+      context: /mnt/nvme/open-stef
+      dockerfile: collect_demand/docker/Dockerfile
+    image: docker-weather-collector:latest
+    container_name: weather-collector
+    environment:
+      - PREFECT_API_URL=http://prefect-server-weather:4200/api
+      - TZ=Asia/Seoul
+    volumes:
+      - /mnt/nvme/open-stef:/mnt/nvme/open-stef
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      prefect-server-weather:
+        condition: service_healthy
+    networks:
+      - prefect-network
+    working_dir: /mnt/nvme/open-stef/collect_demand
+    command: >
+      bash -c "
+        echo 'Waiting 15s for Prefect API...' &&
+        sleep 15 &&
+        python -m prefect_flows.deploy
+      "
+
+  weather-worker:
+    image: prefecthq/prefect:2-python3.10
+    container_name: weather-worker
+    environment:
+      - PREFECT_API_URL=http://prefect-server-weather:4200/api
+      - PREFECT_WORK_POOL=weather-pool
+      - TZ=Asia/Seoul
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: >
+      bash -c "
+        echo 'Installing compatible pydantic & prefect-docker...' &&
+        pip install 'pydantic<2.11' &&
+        pip install 'prefect-docker<0.5.0,>=0.3.0' &&
+        echo 'Starting Prefect docker worker...' &&
+        prefect worker start --type docker --pool weather-pool
+      "
+    depends_on:
+      prefect-server-weather:
+        condition: service_healthy
+    networks:
+      - prefect-network
+
+volumes:
+  postgres_data:
+
+networks:
+  prefect-network:
+    driver: bridge
+
+# http://127.0.0.1:4204
