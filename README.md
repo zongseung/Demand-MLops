@@ -1,7 +1,7 @@
-# Weather Pipeline
+# DW(Demand - weather Data) Pipeline
 
 기상청 ASOS 데이터와 한국전력거래소(KPX) 전력수요 데이터를 수집, 처리, 통합하는 ETL 파이프라인입니다. Prefect를 사용하여 워크플로우를 관리하고, PostgreSQL 데이터베이스에 데이터를 저장합니다.
-
+전력수급 데이터는 다음 링크를 통해 확인이 가능함 : https://openapi.kpx.or.kr/openapi.do#
 ## 주요 기능
 
 - 🌤️ **기상 데이터 수집**: 기상청 ASOS 시간별 데이터 (42개 관측소)
