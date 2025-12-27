@@ -16,11 +16,11 @@ import requests
 # 상위 디렉토리를 sys.path에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fetch_data.collect_asos import select_data_async, station_ids
-from fetch_data.impute_missing import impute_missing_values
-from fetch_data.collect_demand import collect_recent_hours, collect_with_backfill
+from fetch_data.weather.collect_asos import select_data_async, station_ids
+from fetch_data.common.impute_missing import impute_missing_values
+from fetch_data.demand.collect_demand import collect_recent_hours, collect_with_backfill
 from fetch_data.aggregate_hourly import aggregate_recent_hours, aggregate_with_backfill
-from fetch_data.database import init_db
+from fetch_data.common.database import init_db
 from prefect_flows.merge_to_all import merge_to_all_csv
 
 

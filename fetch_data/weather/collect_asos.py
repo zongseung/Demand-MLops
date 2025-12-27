@@ -11,15 +11,15 @@ from dotenv import load_dotenv
 
 # ===== 경로 / 모듈 세팅 =====
 
-# 이 파일 경로: /app/fetch_data/collect_asos.py
+# 이 파일 경로: /app/fetch_data/weather/collect_asos.py
 # 프로젝트 루트: /app
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # fetch_data 모듈 임포트 가능하게 상위 디렉토리 추가
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from fetch_data.impute_missing import impute_missing_values
+from fetch_data.common.impute_missing import impute_missing_values
 from prefect_flows.merge_to_all import merge_to_all_csv, DATA_DIR  # ★ 여기!
 
 # ===== 환경변수 / API 키 =====

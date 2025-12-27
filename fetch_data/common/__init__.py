@@ -1,14 +1,10 @@
 """
-Data fetching module for Demand-MLops.
+Common utilities for data fetching.
 
-Organized into submodules:
-- common: Database and utility functions
-- weather: ASOS weather data collection
-- demand: Power demand data collection
-- pv: PV generation data collection
+- database: Database connection and ORM models
+- impute_missing: Missing value imputation utilities
 """
 
-# Re-exports for backward compatibility
 from fetch_data.common.database import (
     Base,
     Demand5Min,
@@ -22,12 +18,6 @@ from fetch_data.common.database import (
 from fetch_data.common.impute_missing import impute_missing_values
 
 __all__ = [
-    # Submodules
-    "common",
-    "weather",
-    "demand",
-    "pv",
-    # Database (backward compatibility)
     "Base",
     "Demand5Min",
     "DemandWeather1H",
@@ -36,6 +26,5 @@ __all__ = [
     "init_db",
     "get_last_timestamp_5min",
     "get_last_timestamp_1h",
-    # Utilities (backward compatibility)
     "impute_missing_values",
 ]

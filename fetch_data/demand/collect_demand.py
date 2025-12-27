@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from workalendar.asia import SouthKorea
 
-from fetch_data.database import (
+from fetch_data.common.database import (
     Demand5Min,
     get_async_session,
     init_db,
