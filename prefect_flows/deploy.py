@@ -31,7 +31,8 @@ DEMAND_DATABASE_URL = os.getenv(
 
 SERVICE_KEY = os.getenv("SERVICE_KEY")
 if not SERVICE_KEY:
-    raise ValueError("SERVICE_KEY 환경변수를 찾을 수 없습니다.")
+    raise ValueError("SERVI" \
+    "CE_KEY 환경변수를 찾을 수 없습니다.")
 
 os.environ.setdefault("PREFECT_API_URL", PREFECT_API_URL)
 
