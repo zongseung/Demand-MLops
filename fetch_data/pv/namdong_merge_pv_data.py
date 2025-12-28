@@ -88,6 +88,21 @@ def merge_to_long(input_dir: Path, out_path: Path) -> None:
             else:
                 raise ValueError(f"필수 컬럼(발전구분) 누락: {fp.name} / cols={df.columns.tolist()[:15]}")
 
+        # 호기 정보가 있으면 발전소명에 호기 번호 추가 (예: "영흥태양광_1", "영흥태양광_2")
+        if "호기" in df.columns:
+            df["호기"] = df["호기"].astype(str).str.strip()
+            # 호기가 1개인 발전소는 호기 번호 생략, 여러 개인 경우만 추가
+            hogi_counts = df.groupby("발전소명")["호기"].nunique()
+            multi_hogi_plants = hogi_counts[hogi_counts > 1].index.tolist()
+            
+            def add_hogi_suffix(row):
+                if row["발전소명"] in multi_hogi_plants:
+                    return f"{row['발전소명']}_{row['호기']}"
+                return row["발전소명"]
+            
+            df["발전소명"] = df.apply(add_hogi_suffix, axis=1)
+            print(f"  -> 호기 구분 적용: {len(multi_hogi_plants)}개 발전소")
+
         # 일자 컬럼명도 케이스별로 정리
         if "일자" not in df.columns:
             # 가끔 '일자' 대신 다른 형태면 여기서 추가 매핑
