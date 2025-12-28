@@ -12,7 +12,14 @@
         "defaults": {
           "color": { "mode": "thresholds" },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "links": [
+            {
+              "title": "발전소 선택: ${__data.fields.plant_name}",
+              "url": "/d/pv-dashboard/pv-generation-dashboard?var-plant=${__data.fields.plant_name}",
+              "targetBlank": false
+            }
+          ]
         },
         "overrides": []
       },
@@ -51,7 +58,7 @@
           "refId": "A"
         }
       ],
-      "title": "발전소 위치",
+      "title": "발전소 위치 (클릭하여 선택)",
       "type": "geomap"
     },
     {
@@ -267,9 +274,9 @@
   "templating": {
     "list": [
       {
-        "current": { "selected": true, "text": "삼천포태양광#5", "value": "삼천포태양광#5" },
+        "current": { "selected": true, "text": "광양항세방태양광", "value": "광양항세방태양광" },
         "datasource": { "type": "frser-sqlite-datasource", "uid": "pv-sqlite" },
-        "definition": "SELECT DISTINCT plant_name FROM pv_plants ORDER BY plant_name",
+        "definition": "SELECT DISTINCT plant_name FROM pv_generation ORDER BY plant_name",
         "description": "발전소 선택",
         "hide": 0,
         "includeAll": false,
@@ -277,7 +284,7 @@
         "multi": false,
         "name": "plant",
         "options": [],
-        "query": "SELECT DISTINCT plant_name FROM pv_plants ORDER BY plant_name",
+        "query": "SELECT DISTINCT plant_name FROM pv_generation ORDER BY plant_name",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -287,7 +294,7 @@
       {
         "current": {},
         "datasource": { "type": "frser-sqlite-datasource", "uid": "pv-sqlite" },
-        "definition": "SELECT DISTINCT DATE(datetime) as date FROM pv_generation WHERE plant_name = '${plant}' ORDER BY date",
+        "definition": "SELECT DISTINCT DATE(datetime) as date FROM pv_generation WHERE plant_name = '${plant}' ORDER BY date DESC",
         "description": "날짜 선택 (다중 선택 가능)",
         "hide": 0,
         "includeAll": false,
@@ -295,7 +302,7 @@
         "multi": true,
         "name": "date",
         "options": [],
-        "query": "SELECT DISTINCT DATE(datetime) as date FROM pv_generation WHERE plant_name = '${plant}' ORDER BY date",
+        "query": "SELECT DISTINCT DATE(datetime) as date FROM pv_generation WHERE plant_name = '${plant}' ORDER BY date DESC",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
