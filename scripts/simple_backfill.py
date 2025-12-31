@@ -13,8 +13,8 @@ from pathlib import Path
 # 프로젝트 루트 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fetch_data.database import init_db, get_async_session, Demand5Min
-from fetch_data.collect_demand import load_csv_to_db
+from fetch_data.common.database import init_db, get_async_session, Demand5Min
+from fetch_data.demand.collect_demand import load_csv_to_db
 from fetch_data.aggregate_hourly import aggregate_with_backfill
 
 
