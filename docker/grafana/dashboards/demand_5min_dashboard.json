@@ -529,7 +529,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  timestamp AS \"time\",\n  current_demand AS \"현재수요(MW)\",\n  current_supply AS \"공급능력(MW)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp - interval '9 hours')\nORDER BY timestamp",
+          "rawSql": "SELECT\n  timestamp AS \"time\",\n  current_demand AS \"현재수요(MW)\",\n  current_supply AS \"공급능력(MW)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp",
           "refId": "A"
         }
       ],
@@ -639,7 +639,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  timestamp AS \"time\",\n  reserve_rate AS \"공급예비율(%)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp - interval '9 hours')\nORDER BY timestamp",
+          "rawSql": "SELECT\n  timestamp AS \"time\",\n  reserve_rate AS \"공급예비율(%)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp",
           "refId": "A"
         }
       ],
@@ -759,7 +759,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  timestamp AS \"time\",\n  supply_reserve AS \"공급예비력(MW)\",\n  operation_reserve AS \"운영예비력(MW)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp - interval '9 hours')\nORDER BY timestamp",
+          "rawSql": "SELECT\n  timestamp AS \"time\",\n  supply_reserve AS \"공급예비력(MW)\",\n  operation_reserve AS \"운영예비력(MW)\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp",
           "refId": "A"
         }
       ],
@@ -907,7 +907,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  timestamp AS \"time\",\n  CASE WHEN day_type = 0 THEN current_demand END AS \"평일\",\n  CASE WHEN day_type = 1 THEN current_demand END AS \"주말\",\n  CASE WHEN day_type = 2 THEN current_demand END AS \"공휴일\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp - interval '9 hours')\nORDER BY timestamp",
+          "rawSql": "SELECT\n  timestamp AS \"time\",\n  CASE WHEN day_type = 0 THEN current_demand END AS \"평일\",\n  CASE WHEN day_type = 1 THEN current_demand END AS \"주말\",\n  CASE WHEN day_type = 2 THEN current_demand END AS \"공휴일\"\nFROM demand_5min\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp",
           "refId": "A"
         }
       ],
