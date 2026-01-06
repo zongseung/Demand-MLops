@@ -139,6 +139,7 @@ class Demand5Min(Base):
 
     # 메타데이터
     is_holiday = Column(Boolean, default=False, comment="공휴일 여부")
+    day_type = Column(Integer, default=0, comment="요일유형: 0=평일, 1=주말, 2=공휴일")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -170,6 +171,7 @@ class DemandWeather1H(Base):
 
     # 메타데이터
     is_holiday = Column(Boolean, default=False, comment="공휴일 여부")
+    day_type = Column(Integer, default=0, comment="요일유형: 0=평일, 1=주말, 2=공휴일")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

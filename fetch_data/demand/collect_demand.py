@@ -38,11 +38,12 @@ BASE_THROTTLE_SECONDS = 0.4
 REQUEST_TIMEOUT = 30
 
 # Column mapping: Korean -> English
+# API 응답 컬럼: 기준일시,공급능력(MW),현재수요(MW),최대예측수요(MW),공급예비력(MW),공급예비율(%),운영예비력(MW),운영예비율(%)
 COLUMN_MAPPING = {
     "기준일시": "timestamp",
     "현재수요(MW)": "current_demand",
-    "현재공급(MW)": "current_supply",
-    "공급가능용량(MW)": "supply_capacity",
+    "공급능력(MW)": "current_supply",  # API에서는 "공급능력(MW)"으로 옴
+    "최대예측수요(MW)": "supply_capacity",  # 최대예측수요를 supply_capacity로 활용
     "공급예비력(MW)": "supply_reserve",
     "공급예비율(%)": "reserve_rate",
     "운영예비력(MW)": "operation_reserve",
@@ -112,6 +113,25 @@ def is_holiday(date: datetime) -> bool:
     if date_key not in _holiday_cache:
         _holiday_cache[date_key] = _calendar.is_holiday(date.date())
     return _holiday_cache[date_key]
+
+
+def get_day_type(date: datetime) -> int:
+    """
+    요일 유형을 반환합니다.
+
+    Returns:
+        0: 평일 (월~금, 공휴일 아님)
+        1: 주말 (토, 일)
+        2: 공휴일 (공휴일 캘린더 기준)
+    """
+    # 공휴일 우선 체크
+    if is_holiday(date):
+        return 2
+    # 주말 체크 (5=토, 6=일)
+    if date.weekday() >= 5:
+        return 1
+    # 평일
+    return 0
 
 
 # ========================================
@@ -225,16 +245,27 @@ async def download_range(
     start_date: str,
     end_date: str,
     throttle_seconds: float = BASE_THROTTLE_SECONDS,
+    chunk_days: int = 1,
+    max_retries: int = 3,
 ) -> pd.DataFrame:
     """
-    전체 날짜 범위의 데이터를 다운로드합니다.
-    3개월 단위로 자동 분할.
+    전체 날짜 범위의 데이터를 청크 단위로 다운로드합니다.
+
+    Args:
+        start_date: 시작일 (YYYYMMDD)
+        end_date: 종료일 (YYYYMMDD)
+        throttle_seconds: 요청 간 대기 시간
+        chunk_days: 청크 크기 (일 단위, 기본 1일)
+        max_retries: 청크당 최대 재시도 횟수
     """
     start = parse_date(start_date)
     end = parse_date(end_date)
-    ranges = split_range_by_days(start, end, max_days=90)
 
-    print(f"[INFO] {len(ranges)}개 구간으로 분할하여 다운로드")
+    # 청크 단위로 분할 (기본 1일씩)
+    ranges = split_range_by_days(start, end, max_days=chunk_days)
+    total_chunks = len(ranges)
+
+    print(f"[INFO] {total_chunks}개 청크로 분할하여 다운로드 (청크 크기: {chunk_days}일)")
 
     timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
     connector = aiohttp.TCPConnector(
@@ -251,28 +282,42 @@ async def download_range(
             start_str = format_date(seg_start)
             end_str = format_date(seg_end)
 
-            print(f"[{idx}/{len(ranges)}] 다운로드: {start_str} ~ {end_str}")
-
-            try:
-                df = await download_segment(session, start_str, end_str)
-                if not df.empty:
-                    all_dfs.append(df)
-                print(f"[DONE] {start_str} ~ {end_str}: {len(df)}건")
-            except Exception as e:
-                print(f"[ERROR] {start_str} ~ {end_str}: {e}")
-                # 5초 대기 후 1회 재시도
-                await asyncio.sleep(5)
+            # 청크별 재시도 로직
+            chunk_df = None
+            for attempt in range(1, max_retries + 1):
                 try:
                     df = await download_segment(session, start_str, end_str)
                     if not df.empty:
-                        all_dfs.append(df)
-                except Exception as e2:
-                    print(f"[FAIL] {start_str} ~ {end_str}: {e2}")
+                        if chunk_df is None:
+                            chunk_df = df
+                        else:
+                            # 이전 시도와 병합하여 누락 보완
+                            chunk_df = pd.concat([chunk_df, df], ignore_index=True)
+                            first_col = chunk_df.columns[0]
+                            chunk_df = chunk_df.drop_duplicates(subset=[first_col], keep='first')
 
-            await asyncio.sleep(throttle_seconds)
+                        # 예상 건수 도달하면 조기 종료
+                        expected = (seg_end - seg_start).days * 288 + 288
+                        if len(chunk_df) >= expected:
+                            break
+
+                    await asyncio.sleep(throttle_seconds)
+                except Exception as e:
+                    print(f"  [{idx}/{total_chunks}] 시도 {attempt} 오류: {e}")
+                    await asyncio.sleep(2)
+
+            if chunk_df is not None and not chunk_df.empty:
+                all_dfs.append(chunk_df)
+                print(f"[{idx}/{total_chunks}] {start_str}: {len(chunk_df)}건")
+            else:
+                print(f"[{idx}/{total_chunks}] {start_str}: 실패")
 
     if all_dfs:
-        return pd.concat(all_dfs, ignore_index=True)
+        result = pd.concat(all_dfs, ignore_index=True)
+        # 최종 중복 제거
+        first_col = result.columns[0]
+        result = result.drop_duplicates(subset=[first_col], keep='first')
+        return result
     return pd.DataFrame()
 
 
@@ -296,6 +341,8 @@ def prepare_records(df: pd.DataFrame) -> List[dict]:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
         # 공휴일 여부 추가
         df["is_holiday"] = df["timestamp"].apply(is_holiday)
+        # 요일 유형 추가 (0=평일, 1=주말, 2=공휴일)
+        df["day_type"] = df["timestamp"].apply(get_day_type)
 
     # NaN을 None으로 변환
     df = df.where(pd.notnull(df), None)
@@ -323,6 +370,7 @@ async def save_to_db(records: List[dict]) -> int:
                 "reserve_rate": stmt.excluded.reserve_rate,
                 "operation_reserve": stmt.excluded.operation_reserve,
                 "is_holiday": stmt.excluded.is_holiday,
+                "day_type": stmt.excluded.day_type,
             }
         )
         await session.execute(stmt)
@@ -408,6 +456,9 @@ async def load_csv_to_db(
     if "is_holiday" in df.columns:
         df["is_holiday"] = df["is_holiday"].astype(bool)
 
+    # day_type 계산 (0=평일, 1=주말, 2=공휴일)
+    df["day_type"] = df["timestamp"].apply(get_day_type)
+
     # NaN을 None으로 변환
     df = df.where(pd.notnull(df), None)
 
@@ -433,6 +484,36 @@ async def collect_with_backfill(
     """
     print("\n[INFO] 백필 모드 시작 (CSV 기반)")
     return await load_csv_to_db(csv_path)
+
+
+async def collect_and_save(
+    start_date: str,
+    end_date: str,
+    throttle_seconds: float = BASE_THROTTLE_SECONDS,
+) -> int:
+    """
+    지정 날짜 범위 데이터를 API에서 수집하여 DB에 저장합니다.
+    """
+    print(f"\n[INFO] 기간 수집 시작: {start_date} ~ {end_date}")
+
+    # DB 테이블 생성
+    await init_db()
+
+    # 데이터 다운로드
+    df = await download_range(start_date, end_date, throttle_seconds)
+
+    if df.empty:
+        print("[WARN] 수집된 데이터 없음")
+        return 0
+
+    print(f"[INFO] 총 {len(df)}건 다운로드 완료")
+
+    # DB 저장
+    records = prepare_records(df)
+    saved_count = await save_to_db(records)
+
+    print(f"[INFO] {saved_count}건 DB 저장 완료")
+    return saved_count
 
 
 async def collect_recent_hours(

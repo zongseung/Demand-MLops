@@ -27,6 +27,31 @@ def is_holiday_cached(cal: SouthKorea, cache: dict, date_str_yyyy_mm_dd: str) ->
     cache[date_str_yyyy_mm_dd] = val
     return val
 
+
+def get_day_type_cached(cal: SouthKorea, cache: dict, date_str_yyyy_mm_dd: str) -> int:
+    """
+    요일 유형을 캐시하여 반환합니다.
+
+    Returns:
+        0: 평일 (월~금, 공휴일 아님)
+        1: 주말 (토, 일)
+        2: 공휴일 (공휴일 캘린더 기준)
+    """
+    cache_key = f"day_type_{date_str_yyyy_mm_dd}"
+    if cache_key in cache:
+        return cache[cache_key]
+    d = datetime.strptime(date_str_yyyy_mm_dd, "%Y-%m-%d").date()
+    # 공휴일 우선 체크
+    if cal.is_holiday(d):
+        val = 2
+    # 주말 체크 (5=토, 6=일)
+    elif d.weekday() >= 5:
+        val = 1
+    else:
+        val = 0
+    cache[cache_key] = val
+    return val
+
 def read_last_datetime(out_file, encoding, datetime_col="기준일시"):
     """
     out_file의 마지막 데이터 행에서 기준일시를 읽어 반환.
@@ -67,6 +92,7 @@ def concat_csv_backfill_with_holiday(
     encoding="euc-kr",
     datetime_col="기준일시",
     holiday_col="공휴일",
+    day_type_col="요일유형",
 ):
     if not files:
         raise FileNotFoundError("대상 CSV 파일이 없습니다. (Demand_Data_*.csv)")
@@ -107,9 +133,9 @@ def concat_csv_backfill_with_holiday(
 
                 dt_idx_in = header.index(datetime_col)
 
-                # 최초 생성일 때만 헤더 쓰기(공휴일 컬럼 추가)
+                # 최초 생성일 때만 헤더 쓰기(공휴일, 요일유형 컬럼 추가)
                 if not wrote_header:
-                    writer.writerow(header + [holiday_col])
+                    writer.writerow(header + [holiday_col, day_type_col])
                     wrote_header = True
 
                 # 데이터 행 처리
@@ -129,13 +155,14 @@ def concat_csv_backfill_with_holiday(
 
                     date_part = dt_val[:10]  # 'YYYY-MM-DD'
                     holiday = is_holiday_cached(cal, holiday_cache, date_part)
+                    day_type = get_day_type_cached(cal, holiday_cache, date_part)
 
-                    writer.writerow(row + [holiday])
+                    writer.writerow(row + [holiday, day_type])
 
                     # last_dt 갱신(append 중인 최신값으로 유지)
                     last_dt = row_dt
 
-    print(f"[DONE] backfilled(+{holiday_col}) → {out_file}")
+    print(f"[DONE] backfilled(+{holiday_col}, +{day_type_col}) → {out_file}")
 
 
 

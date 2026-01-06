@@ -37,6 +37,22 @@ def is_holiday(date: datetime) -> bool:
     return _holiday_cache[date_key]
 
 
+def get_day_type(date: datetime) -> int:
+    """
+    요일 유형을 반환합니다.
+
+    Returns:
+        0: 평일 (월~금, 공휴일 아님)
+        1: 주말 (토, 일)
+        2: 공휴일 (공휴일 캘린더 기준)
+    """
+    if is_holiday(date):
+        return 2
+    if date.weekday() >= 5:
+        return 1
+    return 0
+
+
 # ========================================
 # DB Operations - Demand 5min
 # ========================================
@@ -52,7 +68,8 @@ async def get_hourly_demand_from_db(
             SELECT
                 date_trunc('hour', timestamp) as hour,
                 AVG(current_demand) as demand_avg,
-                BOOL_OR(is_holiday) as is_holiday
+                BOOL_OR(is_holiday) as is_holiday,
+                MAX(day_type) as day_type
             FROM demand_5min
             WHERE timestamp >= :start AND timestamp < :end
             GROUP BY date_trunc('hour', timestamp)
@@ -68,7 +85,7 @@ async def get_hourly_demand_from_db(
         if not rows:
             return pd.DataFrame()
 
-        df = pd.DataFrame(rows, columns=["timestamp", "demand_avg", "is_holiday"])
+        df = pd.DataFrame(rows, columns=["timestamp", "demand_avg", "is_holiday", "day_type"])
         return df
 
 
@@ -135,13 +152,18 @@ async def merge_and_save_hourly(
         # 수요 데이터만 저장 (기상 데이터 없이)
         records = []
         for _, row in demand_df.iterrows():
+            ts = row["timestamp"]
+            day_type_val = row.get("day_type")
+            if day_type_val is None or pd.isna(day_type_val):
+                day_type_val = get_day_type(ts)
             records.append({
-                "timestamp": row["timestamp"],
+                "timestamp": ts,
                 "station_name": "UNKNOWN",
                 "temperature": None,
                 "humidity": None,
                 "demand_avg": row["demand_avg"],
                 "is_holiday": row["is_holiday"],
+                "day_type": int(day_type_val),
             })
 
         return await save_to_db(records)
@@ -158,9 +180,13 @@ async def merge_and_save_hourly(
         if not demand_match.empty:
             demand_avg = demand_match.iloc[0]["demand_avg"]
             is_hol = demand_match.iloc[0]["is_holiday"]
+            day_type_val = demand_match.iloc[0].get("day_type")
+            if day_type_val is None or pd.isna(day_type_val):
+                day_type_val = get_day_type(ts)
         else:
             demand_avg = None
             is_hol = is_holiday(ts)
+            day_type_val = get_day_type(ts)
 
         records.append({
             "timestamp": ts,
@@ -169,6 +195,7 @@ async def merge_and_save_hourly(
             "humidity": weather_row.get("humidity"),
             "demand_avg": demand_avg,
             "is_holiday": is_hol,
+            "day_type": int(day_type_val),
         })
 
     if not records:
@@ -180,25 +207,35 @@ async def merge_and_save_hourly(
 async def save_to_db(records: List[dict]) -> int:
     """
     레코드를 demand_weather_1h 테이블에 저장합니다. (Upsert)
+    배치 처리로 PostgreSQL 파라미터 한계(32767)를 회피합니다.
     """
     if not records:
         return 0
 
+    # 레코드당 8개 파라미터, PostgreSQL 한계 32767개
+    # 안전하게 3000건씩 배치 처리 (3000 * 8 = 24000 < 32767)
+    BATCH_SIZE = 3000
+    total_saved = 0
+
     async with get_async_session() as session:
-        stmt = pg_insert(DemandWeather1H).values(records)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["timestamp", "station_name"],
-            set_={
-                "temperature": stmt.excluded.temperature,
-                "humidity": stmt.excluded.humidity,
-                "demand_avg": stmt.excluded.demand_avg,
-                "is_holiday": stmt.excluded.is_holiday,
-            }
-        )
-        await session.execute(stmt)
+        for i in range(0, len(records), BATCH_SIZE):
+            batch = records[i:i + BATCH_SIZE]
+            stmt = pg_insert(DemandWeather1H).values(batch)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["timestamp", "station_name"],
+                set_={
+                    "temperature": stmt.excluded.temperature,
+                    "humidity": stmt.excluded.humidity,
+                    "demand_avg": stmt.excluded.demand_avg,
+                    "is_holiday": stmt.excluded.is_holiday,
+                    "day_type": stmt.excluded.day_type,
+                }
+            )
+            await session.execute(stmt)
+            total_saved += len(batch)
         await session.commit()
 
-    return len(records)
+    return total_saved
 
 
 # ========================================

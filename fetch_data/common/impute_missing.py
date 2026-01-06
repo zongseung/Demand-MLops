@@ -383,16 +383,16 @@ def main():
     df = pd.read_csv(csv_path, encoding='utf-8-sig')
     
     print(f"원본 데이터 shape: {df.shape}")
-    print(f"ta 결측치: {df['ta'].isna().sum()}")
-    print(f"hm 결측치: {df['hm'].isna().sum()}")
+    print(f"ta 결측치: {df['temperature'].isna().sum()}")
+    print(f"hm 결측치: {df['humidity'].isna().sum()}")
     
     # 결측치 처리
     print("\n결측치 처리 중...")
-    df_imputed, debug_info = impute_missing_values(df, columns=['ta', 'hm'], debug=True)
-    
+    df_imputed, debug_info = impute_missing_values(df, columns=['temperature', 'humidity'], debug=True)
+
     print(f"\n처리 후 데이터 shape: {df_imputed.shape}")
-    print(f"ta 결측치: {df_imputed['ta'].isna().sum()}")
-    print(f"hm 결측치: {df_imputed['hm'].isna().sum()}")
+    print(f"temperature 결측치: {df_imputed['temperature'].isna().sum()}")
+    print(f"humidity 결측치: {df_imputed['humidity'].isna().sum()}")
     
     # 결과 저장
     output_path = csv_path.replace('.csv', '_imputed.csv')
