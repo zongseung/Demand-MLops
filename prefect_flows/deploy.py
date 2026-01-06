@@ -152,32 +152,32 @@ async def deploy_weather_flow() -> None:
     print("Deployment 완료: 'daily-weather-collection' (매일 09:00)")
 
 
-async def deploy_demand_flow() -> None:
-    """시간별 전력수요 수집 플로우 배포"""
+async def deploy_unified_demand_flow() -> None:
+    """통합 전력수요 수집 플로우 배포"""
     flow = import_object(
-        "prefect_flows.prefect_pipeline.hourly_demand_collection_flow"
+        "prefect_flows.prefect_pipeline.unified_demand_collection_flow"
     )
 
     deployment = await Deployment.build_from_flow(
         flow=flow,
-        name="hourly-demand-collection",
+        name="unified-demand-collection",
         work_pool_name="weather-new-pool",
         path="/app",
-        entrypoint="prefect_flows/prefect_pipeline.py:hourly_demand_collection_flow",
-        parameters={"hours": 2},
+        entrypoint="prefect_flows/prefect_pipeline.py:unified_demand_collection_flow",
+        parameters={},
         schedules=[
             CronSchedule(
-                cron="5 * * * *",  # 매 시간 5분
+                cron="*/10 * * * *",  # 10분마다
                 timezone="Asia/Seoul",
             )
         ],
-        tags=["demand", "hourly"],
-        description="매 시간 전력수요 데이터를 수집하고 1시간 단위로 통합",
+        tags=["demand", "10min", "unified"],
+        description="10분마다 전력수요를 수집하고, 매시 정각에 시간별 집계를 수행",
         infra_overrides=get_infra_overrides(),
     )
 
     await deployment.apply()
-    print("Deployment 완료: 'hourly-demand-collection' (매시간 :05)")
+    print("Deployment 완료: 'unified-demand-collection' (10분마다)")
 
 
 async def deploy_backfill_flow() -> None:
@@ -258,6 +258,29 @@ async def trigger_backfill() -> None:
 # 메인 실행
 # =======================================================================
 
+async def delete_old_deployments() -> None:
+    """더 이상 사용되지 않는 이전 배포를 삭제합니다."""
+    print("\n--- 이전 배포 삭제 ---\n")
+    old_deployment_names = ["hourly-demand-collection", "demand-10min-collection"]
+    
+    try:
+        async with get_client() as client:
+            all_deployments = await client.read_deployments()
+            deleted_count = 0
+            for deployment in all_deployments:
+                if deployment.name in old_deployment_names:
+                    try:
+                        await client.delete_deployment(deployment.id)
+                        print(f"- 이전 배포 삭제됨: {deployment.name}")
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"- '{deployment.name}' 배포 삭제 실패: {e}")
+            if deleted_count == 0:
+                print("삭제할 이전 배포가 없습니다.")
+    except Exception as e:
+        print(f"이전 배포를 삭제하는 중 오류 발생: {e}")
+
+
 async def create_all_deployments(auto_backfill: bool = True) -> None:
     """모든 배포를 생성합니다."""
     print("\n" + "=" * 60)
@@ -268,11 +291,14 @@ async def create_all_deployments(auto_backfill: bool = True) -> None:
     await wait_for_api()
     await ensure_work_pool("weather-new-pool")
 
+    # 이전 버전 배포 삭제
+    await delete_old_deployments()
+
     print("\n--- Flow 배포 ---\n")
 
     # 각 Flow 배포
     await deploy_weather_flow()
-    await deploy_demand_flow()
+    await deploy_unified_demand_flow()
     await deploy_backfill_flow()
     await deploy_full_etl_flow()
 
@@ -283,7 +309,7 @@ async def create_all_deployments(auto_backfill: bool = True) -> None:
     # 배포 요약
     print("배포된 Flow:")
     print("  1. daily-weather-collection    - 매일 09:00 (기상 데이터)")
-    print("  2. hourly-demand-collection    - 매시간 :05 (전력수요)")
+    print("  2. unified-demand-collection   - 10분마다 (전력수요 수집 및 시간별 집계)")
     print("  3. backfill                    - 수동 실행 (백필)")
     print("  4. full-etl                    - 수동 실행 (전체 ETL)")
     print("")

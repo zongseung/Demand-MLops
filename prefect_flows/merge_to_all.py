@@ -49,36 +49,63 @@ def merge_to_all_csv(new_csv_path: str | Path,
         df_merged = pd.read_csv(merged_csv_path, encoding="utf-8-sig")
         print(f"기존 데이터: {len(df_merged)}건")
         
-        print(f"\n데이터 합치는 중...")
-        df_combined = pd.concat([df_merged, df_new], ignore_index=True)
-        print(f"합친 데이터: {len(df_combined)}건")
+        # 날짜 컬럼을 datetime으로 변환
+        if "date" in df_merged.columns:
+            if df_merged["date"].dtype == "object":
+                df_merged["date"] = pd.to_datetime(df_merged["date"], format="mixed")
+        if "date" in df_new.columns:
+            if df_new["date"].dtype == "object":
+                df_new["date"] = pd.to_datetime(df_new["date"], format="mixed")
         
-        # hour 컬럼이 있으면 date + station_name + hour 기준 중복 제거
-        if "hour" in df_combined.columns and "date" in df_combined.columns:
-            print(f"\n중복 제거 중... (date, station_name, hour 기준)")
-            if df_combined["date"].dtype == "object":
-                df_combined["date"] = pd.to_datetime(df_combined["date"], format="mixed")
-            before = len(df_combined)
-            df_combined = df_combined.drop_duplicates(
-                subset=["date", "station_name", "hour"],
-                keep="last",
+        # 중복 체크: 새 데이터에서 기존에 없는 것만 필터링
+        print(f"\n중복 체크 중...")
+        if "hour" in df_new.columns and "date" in df_new.columns and "station_name" in df_new.columns:
+            # hour 컬럼이 있으면 date + station_name + hour 기준
+            subset_cols = ["date", "station_name", "hour"]
+            print(f"중복 기준: {subset_cols}")
+            
+            # 기존 데이터의 키 조합 생성
+            df_merged_keys = df_merged[subset_cols].drop_duplicates()
+            
+            # 새 데이터에서 기존에 없는 것만 필터링
+            df_new_merged = df_new.merge(
+                df_merged_keys,
+                on=subset_cols,
+                how="left",
+                indicator=True
             )
-            after = len(df_combined)
-            print(f"중복 제거 전: {before}건 → 후: {after}건 (제거: {before - after}건)")
-        elif "date" in df_combined.columns:
+            df_new_unique = df_new_merged[df_new_merged["_merge"] == "left_only"].drop(columns=["_merge"])
+            
+        elif "date" in df_new.columns and "station_name" in df_new.columns:
             # hour 없으면 date + station_name 기준
-            print(f"\n중복 제거 중... (date, station_name 기준)")
-            if df_combined["date"].dtype == "object":
-                df_combined["date"] = pd.to_datetime(df_combined["date"], format="mixed")
-            before = len(df_combined)
-            df_combined = df_combined.drop_duplicates(
-                subset=["date", "station_name"],
-                keep="last",
+            subset_cols = ["date", "station_name"]
+            print(f"중복 기준: {subset_cols}")
+            
+            # 기존 데이터의 키 조합 생성
+            df_merged_keys = df_merged[subset_cols].drop_duplicates()
+            
+            # 새 데이터에서 기존에 없는 것만 필터링
+            df_new_merged = df_new.merge(
+                df_merged_keys,
+                on=subset_cols,
+                how="left",
+                indicator=True
             )
-            after = len(df_combined)
-            print(f"중복 제거 전: {before}건 → 후: {after}건 (제거: {before - after}건)")
+            df_new_unique = df_new_merged[df_new_merged["_merge"] == "left_only"].drop(columns=["_merge"])
         else:
-            print("경고: 'date' 컬럼이 없습니다. 중복 제거를 건너뜁니다.")
+            print("경고: 'date' 또는 'station_name' 컬럼이 없습니다. 중복 체크를 건너뜁니다.")
+            df_new_unique = df_new.copy()
+        
+        skipped_count = len(df_new) - len(df_new_unique)
+        print(f"새 데이터: {len(df_new)}건 → 중복 스킵: {skipped_count}건 → 추가할 데이터: {len(df_new_unique)}건")
+        
+        if len(df_new_unique) > 0:
+            # 중복 없는 새 데이터만 추가
+            df_combined = pd.concat([df_merged, df_new_unique], ignore_index=True)
+            print(f"통합 데이터: {len(df_combined)}건 (기존 {len(df_merged)}건 + 신규 {len(df_new_unique)}건)")
+        else:
+            print("추가할 새 데이터가 없습니다. 기존 데이터를 유지합니다.")
+            df_combined = df_merged.copy()
     else:
         print(f"\n통합 파일이 없습니다. 새로 생성합니다.")
         df_combined = df_new.copy()
