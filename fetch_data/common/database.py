@@ -233,5 +233,67 @@ async def get_last_timestamp_1h(station_name: str | None = None) -> datetime | N
         return row
 
 
+class HeatDemand(Base):
+    """
+    열수요 데이터 테이블 (19개 지역)
+
+    지역별 기상 데이터와 열수요(MW) 저장
+    """
+    __tablename__ = "heat_demand"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    branch = Column(String(50), nullable=False, comment="지역명")
+
+    # 기상 데이터
+    wind_direction = Column(Float, nullable=True, comment="풍향 (도)")
+    wind_speed = Column(Float, nullable=True, comment="풍속 (m/s)")
+    rain_daily = Column(Float, nullable=True, comment="일강수량 (mm)")
+    rain_1h = Column(Float, nullable=True, comment="시간강수량 (mm)")
+    humidity = Column(Float, nullable=True, comment="습도 (%)")
+    temperature_chill = Column(Float, nullable=True, comment="체감온도 (°C)")
+    temperature = Column(Float, nullable=True, comment="기온 (°C)")
+
+    # 시간 분해 컬럼
+    year = Column(Integer, nullable=True)
+    month = Column(Integer, nullable=True)
+    day = Column(Integer, nullable=True)
+    hour = Column(Integer, nullable=True)
+
+    # 열수요
+    heat_demand = Column(Float, nullable=False, comment="열수요 (MW)")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_heat_demand_branch", "branch"),
+        Index("ix_heat_demand_branch_timestamp", "branch", "timestamp"),
+        Index("ix_heat_demand_timestamp_branch", "timestamp", "branch", unique=True),
+    )
+
+    def __repr__(self):
+        return (
+            f"<HeatDemand(timestamp={self.timestamp}, "
+            f"branch={self.branch}, heat_demand={self.heat_demand})>"
+        )
+
+
+class HeatDemandLocation(Base):
+    """
+    열수요 지역 위치 정보 테이블 (19개 지역)
+    """
+    __tablename__ = "heat_demand_location"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True, comment="지역명")
+    address = Column(String(200), nullable=True, comment="주소")
+    latitude = Column(Float, nullable=False, comment="위도")
+    longitude = Column(Float, nullable=False, comment="경도")
+
+    def __repr__(self):
+        return f"<HeatDemandLocation(name={self.name}, lat={self.latitude}, lng={self.longitude})>"
+
+
 # Export engine for backward compatibility
 engine = property(lambda self: get_engine())

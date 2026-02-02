@@ -1,0 +1,204 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 300},
+              {"color": "orange", "value": 500},
+              {"color": "red", "value": 700}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 12, "w": 8, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "basemap": {"config": {}, "name": "Layer 0", "type": "default"},
+        "controls": {"mouseWheelZoom": true, "showAttribution": true, "showDebug": false, "showMeasure": false, "showScale": false, "showZoom": true},
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {"field": "heat_demand", "fixed": "dark-green"},
+                "opacity": 0.8,
+                "rotation": {"fixed": 0, "max": 360, "min": -360, "mode": "mod"},
+                "size": {"field": "heat_demand", "fixed": 5, "max": 15, "min": 5},
+                "symbol": {"fixed": "img/icons/marker/circle.svg", "mode": "fixed"},
+                "symbolAlign": {"horizontal": "center", "vertical": "center"},
+                "text": {"field": "name", "fixed": "", "mode": "field"},
+                "textConfig": {"fontSize": 12, "offsetX": 0, "offsetY": 15, "textAlign": "center", "textBaseline": "top"}
+              }
+            },
+            "location": {"latitude": "latitude", "longitude": "longitude", "mode": "coords"},
+            "name": "열수요 지역",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {"mode": "details"},
+        "view": {"id": "coords", "lat": 36.5, "lon": 127.5, "zoom": 7}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT l.name, l.latitude, l.longitude, l.address, COALESCE(h.heat_demand, 0) as heat_demand FROM heat_demand_location l LEFT JOIN (SELECT DISTINCT ON (branch) branch, heat_demand FROM heat_demand ORDER BY branch, timestamp DESC) h ON l.name = h.branch",
+          "refId": "A"
+        }
+      ],
+      "title": "지역별 열수요 현황",
+      "type": "geomap"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "MW", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "MW"},
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 0},
+      "id": 2,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, heat_demand AS \"열수요(MW)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "열수요 시계열 (${branch})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "°C", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "celsius"},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "기온(°C)"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 4},
+      "id": 3,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, temperature AS \"기온(°C)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "기온 (${branch})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "%", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "percent"},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "습도(%)"}, "properties": [{"id": "color", "value": {"fixedColor": "#5794F2", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 8},
+      "id": 4,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, humidity AS \"습도(%)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "습도 (${branch})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisGridShow": true, "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineWidth": 1, "scaleDistribution": {"type": "linear"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "MW"},
+        "overrides": []
+      },
+      "gridPos": {"h": 12, "w": 8, "x": 0, "y": 12},
+      "id": 8,
+      "options": {"barRadius": 0, "barWidth": 0.8, "groupWidth": 0.7, "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false}, "orientation": "horizontal", "showValue": "auto", "stacking": "none", "tooltip": {"mode": "single", "sort": "none"}, "xTickLabelRotation": 0, "xTickLabelSpacing": 0},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "SELECT branch AS \"지역\", heat_demand AS \"열수요\" FROM (SELECT DISTINCT ON (branch) branch, heat_demand FROM heat_demand ORDER BY branch, timestamp DESC) sub ORDER BY heat_demand DESC", "refId": "A"}],
+      "title": "지역별 열수요 순위 (최신)",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "m/s", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "velocityms"},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "풍속(m/s)"}, "properties": [{"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 12},
+      "id": 5,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, wind_speed AS \"풍속(m/s)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "풍속 (${branch})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "mm", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "lengthmm"},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "강수량(mm)"}, "properties": [{"id": "color", "value": {"fixedColor": "#8F3BB8", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 16},
+      "id": 6,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, rain_1h AS \"강수량(mm)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "강수량 (${branch})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "opacity", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "기온(°C)"}, "properties": [{"id": "unit", "value": "celsius"}, {"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}, {"id": "custom.axisPlacement", "value": "left"}]},
+          {"matcher": {"id": "byName", "options": "열수요(MW)"}, "properties": [{"id": "unit", "value": "MW"}, {"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}, {"id": "custom.axisPlacement", "value": "right"}]}
+        ]
+      },
+      "gridPos": {"h": 4, "w": 16, "x": 8, "y": 20},
+      "id": 7,
+      "options": {"legend": {"calcs": ["mean", "max", "min", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"}, "editorMode": "code", "format": "time_series", "rawQuery": true, "rawSql": "SELECT timestamp AS time, temperature AS \"기온(°C)\", heat_demand AS \"열수요(MW)\" FROM heat_demand WHERE branch = ${branch:sqlstring} AND $__timeFilter(timestamp) ORDER BY timestamp", "refId": "A"}],
+      "title": "기온-열수요 상관관계 (${branch})",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["heat", "demand", "열수요"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": true, "text": "강남", "value": "강남"},
+        "datasource": {"type": "grafana-postgresql-datasource", "uid": "demand-postgres"},
+        "definition": "SELECT DISTINCT branch FROM heat_demand ORDER BY branch",
+        "hide": 0,
+        "includeAll": false,
+        "label": "지역 선택",
+        "multi": false,
+        "name": "branch",
+        "options": [],
+        "query": "SELECT DISTINCT branch FROM heat_demand ORDER BY branch",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {"refresh_intervals": ["5m", "15m", "30m", "1h"]},
+  "timezone": "Asia/Seoul",
+  "title": "열수요 대시보드",
+  "uid": "heat-demand",
+  "version": 1
+}
