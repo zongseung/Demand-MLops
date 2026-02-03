@@ -6,8 +6,8 @@ providers:
     folder: ''
     folderUid: ''
     type: file
-    disableDeletion: false
+    disableDeletion: true      # 삭제 방지
     updateIntervalSeconds: 30
-    allowUiUpdates: true
+    allowUiUpdates: false      # UI에서 수정 차단
     options:
       path: /var/lib/grafana/dashboards

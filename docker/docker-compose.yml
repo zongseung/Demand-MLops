@@ -30,7 +30,7 @@ services:
       - POSTGRES_PASSWORD=demand
       - POSTGRES_DB=demand
     volumes:
-      - demand_data:/var/lib/postgresql/data
+      - /mnt/iscsi/postgres/demand-postgres:/var/lib/postgresql/data
     ports:
       - "5433:5432"  # 호스트에서 localhost:5433으로 접속
     healthcheck:
@@ -47,12 +47,38 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
-    ports:
-      - "3001:3000"  # 호스트 3001 -> 컨테이너 3000
+    # 외부 직접 접근 차단 - Nginx를 통해서만 접근
+    # ports:
+    #   - "3001:3000"
+    expose:
+      - "3000"
     environment:
+      # Admin 계정 (SSH 터널/로컬에서만 사용)
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Auth Proxy 설정
+      - GF_AUTH_PROXY_ENABLED=true
+      - GF_AUTH_PROXY_HEADER_NAME=X-WEBAUTH-USER
+      - GF_AUTH_PROXY_HEADER_PROPERTY=username
+      - GF_AUTH_PROXY_AUTO_SIGN_UP=true
+      - GF_AUTH_PROXY_WHITELIST=172.20.0.0/16
+      # 사용자 권한 설정
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      # 보안 강화
+      - GF_EXPLORE_ENABLED=false
+      - GF_LIVE_ALLOWED_ORIGINS=
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_DISABLE_SIGNOUT_MENU=false
+      # Anonymous 접근 차단
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      # 보안 헤더
+      - GF_SECURITY_X_CONTENT_TYPE_OPTIONS=true
+      - GF_SECURITY_X_XSS_PROTECTION=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+      # Timezone
       - TZ=Asia/Seoul
     volumes:
       - grafana_data:/var/lib/grafana
@@ -63,6 +89,29 @@ services:
         condition: service_healthy
     networks:
       - prefect-new
+
+  # ==============================
+  # Nginx Auth Proxy
+  # ==============================
+  nginx:
+    image: nginx:alpine
+    container_name: grafana-nginx
+    ports:
+      - "3001:80"  # 외부 접속은 Nginx만
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/proxy_params:/etc/nginx/proxy_params:ro
+      - ./nginx/htpasswd:/etc/nginx/htpasswd:ro
+    depends_on:
+      - grafana
+    networks:
+      - prefect-new
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 
   prefect-server-new:
     image: prefecthq/prefect:2-python3.10
@@ -150,7 +199,6 @@ services:
 
 volumes:
   postgres_data_new:
-  demand_data:
   grafana_data:
 
 networks:
