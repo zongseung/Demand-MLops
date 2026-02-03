@@ -19,6 +19,7 @@ venv/
 # Environment / secrets
 .env
 .env.*
+docker/nginx/htpasswd
 
 # Logs / coverage
 *.log
