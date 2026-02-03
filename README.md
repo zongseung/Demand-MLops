@@ -17,13 +17,15 @@
 ```
 weather-pipeline/
 ├── fetch_data/              # 데이터 수집 및 처리 모듈
-│   ├── collect_asos.py      # 기상청 ASOS 데이터 수집
-│   ├── collect_demand.py    # KPX 전력수요 데이터 수집
+│   ├── common/              # 공통 유틸/DB 모델
+│   │   ├── database.py      # DB 모델 및 연결
+│   │   └── impute_missing.py # 결측치 처리
+│   ├── weather/             # 기상 데이터 수집
+│   │   └── collect_asos.py  # ASOS 데이터 수집
+│   ├── demand/              # 전력수요 데이터 수집
+│   │   └── collect_demand.py # KPX 전력수요 수집
 │   ├── aggregate_hourly.py  # 1시간 단위 데이터 통합
-│   ├── concat_demand.py     # CSV 파일 병합 (레거시)
-│   ├── impute_missing.py    # 결측치 처리
-│   ├── database.py          # DB 모델 및 연결
-│   └── transfer_demand_1h.py # 데이터 전송 유틸
+│   └── heat_demand/         # 열수요 데이터 처리
 ├── prefect_flows/            # Prefect 워크플로우
 │   ├── prefect_pipeline.py  # 메인 ETL 플로우
 │   ├── merge_to_all.py      # CSV 통합 유틸
@@ -92,13 +94,13 @@ docker compose run --rm weather-deployer
 
 #### 기상 데이터 수집
 ```bash
-python fetch_data/collect_asos.py
+python fetch_data/weather/collect_asos.py
 # 입력 예: 20250101,20250131
 ```
 
 #### 전력수요 데이터 수집
 ```bash
-python fetch_data/collect_demand.py
+python fetch_data/demand/collect_demand.py
 # 선택:
 # 1. 날짜 범위 지정 수집 (DB 저장)
 #    - 입력: start,end = 'YYYYMMDD,YYYYMMDD'
@@ -220,12 +222,12 @@ docker compose run --rm weather-deployer
   4. 통합 파일 병합
   5. Slack 알림
 
-### 2. 시간별 전력수요 수집 플로우
-- **실행 주기**: 매 시간
+### 2. 전력수요 수집 + 시간별 집계 플로우
+- **실행 주기**: 10분마다 실행
 - **작업 순서**:
   1. DB 초기화
-  2. 최근 2시간 전력수요 수집
-  3. 최근 24시간 1시간 통합 데이터 생성
+  2. 최근 1시간 전력수요 수집 (5분 단위)
+  3. 정각 10분 이내 실행 시에만 24시간 1시간 통합 수행
 
 ### 3. 백필 플로우
 - **실행**: 수동 또는 주기적
@@ -239,6 +241,29 @@ docker compose run --rm weather-deployer
   1. 기상 데이터 수집 및 처리
   2. 전력수요 수집
   3. 1시간 통합 데이터 생성
+
+## 코드 로직 플로우 (Mermaid)
+
+```mermaid
+flowchart TD
+  subgraph WeatherFlow[일일 기상 데이터 수집]
+    W1[select_data_async<br/>ASOS 수집] --> W2[impute_missing_values]
+    W2 --> W3[CSV 저장<br/>data/asos_YYYYMMDD.csv]
+    W3 --> W4[merge_to_all_csv<br/>data/asos_all_merged.csv]
+  end
+
+  subgraph DemandFlow[전력수요 수집 (10분 주기)]
+    D1[init_db] --> D2[collect_recent_hours<br/>KPX 5분 수요]
+    D2 --> D3{minute < 10?}
+    D3 -- Yes --> D4[aggregate_recent_hours<br/>24시간 통합]
+    D3 -- No --> D5[시간 집계 생략]
+  end
+
+  subgraph FullETL[전체 ETL (수동)]
+    F1[daily_weather_collection_flow] --> F2[collect_demand_recent]
+    F2 --> F3[aggregate_recent_hours]
+  end
+```
 
 ## 결측치 처리 전략
 
