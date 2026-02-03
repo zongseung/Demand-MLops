@@ -248,14 +248,14 @@ docker compose run --rm weather-deployer
 flowchart TD
   subgraph WeatherFlow["일일 기상 데이터 수집"]
     W1[select_data_async] --> W2[impute_missing_values]
-    W2 --> W3[CSV 저장 (asos_YYYYMMDD.csv)]
-    W3 --> W4[merge_to_all_csv (asos_all_merged.csv)]
+    W2 --> W3["CSV 저장 (asos_YYYYMMDD.csv)"]
+    W3 --> W4["merge_to_all_csv (asos_all_merged.csv)"]
   end
 
   subgraph DemandFlow["전력수요 수집 10분 주기"]
-    D1[init_db] --> D2[collect_recent_hours (KPX 5분 수요)]
+    D1[init_db] --> D2["collect_recent_hours (KPX 5분 수요)"]
     D2 --> D3{minute 0-9?}
-    D3 -- Yes --> D4[aggregate_recent_hours (24시간 통합)]
+    D3 -- Yes --> D4["aggregate_recent_hours (24시간 통합)"]
     D3 -- No --> D5[시간 집계 생략]
   end
 
