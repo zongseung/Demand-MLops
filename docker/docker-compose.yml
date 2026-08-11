@@ -40,6 +40,7 @@ services:
       retries: 10
     networks:
       - prefect-new
+      - pv-net  # pv-db 가 FDW 로 research 뷰를 읽어간다 (Energy-Data-pipeline)
 
   # ==============================
   # Grafana (대시보드)
@@ -207,3 +208,6 @@ networks:
   prefect-new:
     driver: bridge
     name: weather-pipeline_prefect-new
+  pv-net:
+    external: true
+    name: pv-pipeline-network
